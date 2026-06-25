@@ -12,7 +12,7 @@
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, signInWithPopup, signInWithRedirect, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -29,7 +29,7 @@
         const db = getFirestore(app);
         const provider = new GoogleAuthProvider();
 
-        window.firebaseAuth = { auth, signInWithPopup, provider, signOut, onAuthStateChanged };
+        window.firebaseAuth = { auth, signInWithPopup, signInWithRedirect, provider, signOut, onAuthStateChanged };
         window.firebaseDb = { db, doc, setDoc, getDoc };
         window.dispatchEvent(new Event('firebase-ready'));
     </script>
@@ -461,7 +461,7 @@
             <section id="profile" class="view">
                 <div class="grid-2">
                     <div class="card">
-                        <div class="card-header">Global Profil & VKİ</div>
+                        <div class="global-profil-vki">Global Profil & VKİ</div>
                         <div style="display:flex; gap:10px;">
                             <div style="flex:1;"><label class="metric-sub">Cinsiyet</label>
                                 <select id="gender">
@@ -561,7 +561,6 @@
             <section id="focus" class="view">
                 <div class="grid-2">
                     <div class="card">
-                        <div class="card-header">Kronometre (Serbest Çalışma)</div>
                         <div class="time-display" id="stopwatchDisplay">00:00:00</div>
                         <div class="time-controls">
                             <button class="btn btn-success" onclick="startStopwatch()" id="swStartBtn">Başlat</button>
@@ -644,7 +643,7 @@
         }
 
         window.addEventListener('firebase-ready', () => {
-            const { auth, onAuthStateChanged, signInWithPopup, provider, signOut } = window.firebaseAuth;
+            const { auth, onAuthStateChanged, signInWithPopup, signInWithRedirect, provider, signOut } = window.firebaseAuth;
             const { db, doc, getDoc, setDoc } = window.firebaseDb;
 
             onAuthStateChanged(auth, async (user) => {
@@ -682,9 +681,10 @@
                         signOut(auth).catch(err => console.error(err));
                     }
                 } else {
-                    signInWithPopup(auth, provider)
-                        .then(() => alert("☁️ Bulut senkronizasyonu aktif!"))
-                        .catch(err => console.error("Giriş iptal edildi.", err));
+                    // Mobilde popup yerine güvenli yönlendirme (Redirect) metodunu çalıştırıyoruz
+                    signInWithRedirect(auth, provider).catch(err => {
+                        alert("Giriş başlatılamadı: " + err.message);
+                    });
                 }
             };
         });
@@ -736,10 +736,16 @@
         }
 
         // --- 2. GRAFİKLER ---
-        Chart.defaults.font.family = 'Inter';
-        let dashTaskChart = new Chart(document.getElementById('dashTaskChart'), { type: 'doughnut', data: { labels: ['Tamamlanan', 'Kalan', 'Boş'], datasets: [{ data: [0, 0, 1], backgroundColor: ['#40916c', '#d97706', '#e5e7eb'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right', labels:{boxWidth:12} } } } });
-        let workoutChart = new Chart(document.getElementById('workoutChart'), { type: 'bar', data: { labels: [], datasets: [{ label: 'Yakılan (kcal)', data: [], backgroundColor: '#2d6a4f', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } } });
-        let profileChart = new Chart(document.getElementById('profileChart'), { type: 'bar', data: { labels: ['Kalori (kcal)', 'Protein (g)', 'Karbonh. (g)', 'Yağ (g)'], datasets: [ { label: 'Alınan', data: [0, 0, 0, 0], backgroundColor: '#d97706', borderRadius: 4 }, { label: 'Hedef/Harcanan', data: [0, 0, 0, 0], backgroundColor: '#40916c', borderRadius: 4 } ] }, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 12 } } }, scales: { x: { beginAtZero: true } } } });
+        let dashTaskChart, workoutChart, profileChart;
+
+        if (window.Chart) {
+            Chart.defaults.font.family = 'Inter';
+            dashTaskChart = new Chart(document.getElementById('dashTaskChart'), { type: 'doughnut', data: { labels: ['Tamamlanan', 'Kalan', 'Boş'], datasets: [{ data: [0, 0, 1], backgroundColor: ['#40916c', '#d97706', '#e5e7eb'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right', labels:{boxWidth:12} } } } });
+            workoutChart = new Chart(document.getElementById('workoutChart'), { type: 'bar', data: { labels: [], datasets: [{ label: 'Yakılan (kcal)', data: [], backgroundColor: '#2d6a4f', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } } });
+            profileChart = new Chart(document.getElementById('profileChart'), { type: 'bar', data: { labels: ['Kalori (kcal)', 'Protein (g)', 'Karbonh. (g)', 'Yağ (g)'], datasets: [ { label: 'Alınan', data: [0, 0, 0, 0], backgroundColor: '#d97706', borderRadius: 4 }, { label: 'Hedef/Harcanan', data: [0, 0, 0, 0], backgroundColor: '#40916c', borderRadius: 4 } ] }, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 12 } } }, scales: { x: { beginAtZero: true } } } });
+        } else {
+            console.error("Grafik kütüphanesi yüklenemedi, internet bağlantınızı kontrol edin.");
+        }
 
         // --- 3. ARAYÜZ VE GEÇİŞLER ---
         const titles = { 'dashboard':'Ana Sayfa', 'tasks':'Görev Yöneticisi', 'workout':'Antrenman Merkezi', 'profile':'Profil', 'note':'Günlük Notlar', 'library':'Kütüphane', 'focus':'Odak' };
@@ -900,7 +906,7 @@
         });
 
         async function searchFoodApi(query) {
-            const resultsList = document.getElementById('apiResultsList');
+            const_resultsList = document.getElementById('apiResultsList');
             if (apiCache[query]) { renderApiResults(apiCache[query], query); return; }
             resultsList.innerHTML = `<li style="color:var(--text-light)">🔍 Aranıyor...</li>`;
             resultsList.style.display = 'block';
@@ -978,7 +984,7 @@
 
         let editingLibId = null;
         function addLibraryItem() {
-            const title = document.getElementById('libTitle').value.trim(); const category = document.getElementById('libCategory').value.trim(); 
+            const title = document.getElementById('libTitle').value.trim(); const_category = document.getElementById('libCategory').value.trim(); 
             const link = document.getElementById('libLink').value.trim(); const notes = document.getElementById('libNotes').value.trim();
             if(!title || !notes || !category) { alert("Lütfen Kaynak Adı, Kategori ve Çıkarım alanlarını doldurun."); return; }
 
@@ -1107,14 +1113,17 @@
             refreshHearts(); renderCalendarGrid(); renderLibrary();
             document.getElementById('noteEditor').innerHTML = state.note || "";
 
-            dashTaskChart.data.datasets[0].data = state.tasks.length === 0 ? [0,0,1] : [c, p, 0]; dashTaskChart.update();
-            const wL=[], wD=[]; for(const[k,v] of Object.entries(state.workout.chartData)) { if(v>0){wL.push(k); wD.push(v);} }
-            workoutChart.data.labels = wL; workoutChart.data.datasets[0].data = wD; workoutChart.update();
-            
-            const pWeight = globalDb.profile.weight || 0; 
-            profileChart.data.datasets[0].data = [state.nutrition.kcal, state.nutrition.protein, state.nutrition.carbs, state.nutrition.fat];
-            profileChart.data.datasets[1].data = hasProfile ? [newTotalExp, pWeight * 2, pWeight * 3, pWeight * 1] : [0, 0, 0, 0];
-            profileChart.update();
+            // Mobil ağ kesintilerinde veya gecikmeli kütüphane yüklenmelerinde grafikleri korumaya alan sarmalayıcı kontrol bloğu
+            if (window.Chart && dashTaskChart && workoutChart && profileChart) {
+                dashTaskChart.data.datasets[0].data = state.tasks.length === 0 ? [0,0,1] : [c, p, 0]; dashTaskChart.update();
+                const wL=[], wD=[]; for(const[k,v] of Object.entries(state.workout.chartData)) { if(v>0){wL.push(k); wD.push(v);} }
+                workoutChart.data.labels = wL; workoutChart.data.datasets[0].data = wD; workoutChart.update();
+                
+                const pWeight = globalDb.profile.weight || 0; 
+                profileChart.data.datasets[0].data = [state.nutrition.kcal, state.nutrition.protein, state.nutrition.carbs, state.nutrition.fat];
+                profileChart.data.datasets[1].data = hasProfile ? [newTotalExp, pWeight * 2, pWeight * 3, pWeight * 1] : [0, 0, 0, 0];
+                profileChart.update();
+            }
 
             saveData();
         }
