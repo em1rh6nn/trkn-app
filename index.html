@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr" data-theme="light">
+<html lang="tr" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -597,7 +597,7 @@
     <script>
         // --- 0. TEMA YÖNETİMİ ---
         function initTheme() {
-            const savedTheme = localStorage.getItem('trkn_theme') || 'light';
+            const savedTheme = localStorage.getItem('trkn_theme') || 'dark';
             document.documentElement.setAttribute('data-theme', savedTheme);
             
             if (window.innerWidth <= 768) {
