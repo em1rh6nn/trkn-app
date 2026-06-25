@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr" data-theme="dark">
+<html lang="tr" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -161,7 +161,6 @@
         .cal-day.color-3 { background: rgba(16, 185, 129, 0.15); color: #059669; border-color: rgba(16, 185, 129, 0.3); } 
         .cal-day.today { border: 2px solid var(--primary); color: var(--primary); }
 
-        /* NOT EKRANI DÜZELTMESİ (Flex Wrap Eklendi) */
         .editor-toolbar { 
             display: flex; gap: 8px; background: var(--input-bg); padding: 10px; 
             border-radius: 12px 4px 0 0; border: 1px solid var(--border-color); border-bottom: none; 
@@ -461,7 +460,7 @@
             <section id="profile" class="view">
                 <div class="grid-2">
                     <div class="card">
-                        <div class="global-profil-vki">Global Profil & VKİ</div>
+                        <div class="card-header">Global Profil & VKİ</div>
                         <div style="display:flex; gap:10px;">
                             <div style="flex:1;"><label class="metric-sub">Cinsiyet</label>
                                 <select id="gender">
@@ -490,9 +489,12 @@
                     </div>
                     <div class="card">
                         <div class="card-header">Günlük Beslenme Girişi (API Destekli)</div>
-                        <div style="margin-bottom: 10px;">
-                            <input type="text" id="foodInput" placeholder="Yiyecek yazıp Enter'a basın... (Örn: apple)" style="margin-bottom:0;">
+                        
+                        <div style="margin-bottom: 10px; display: flex; gap: 10px;">
+                            <input type="text" id="foodInput" placeholder="Yiyecek yaz... (Örn: apple)" style="margin-bottom:0;">
+                            <button class="btn" onclick="triggerFoodSearch()" style="width: auto; padding: 12px 20px;">Ara</button>
                         </div>
+                        
                         <ul class="api-search-results" id="apiResultsList"></ul>
                         
                         <div class="card-header" style="border:none; padding:0; margin-top:15px;">TRKN Besin ve Enerji Dengesi</div>
@@ -561,6 +563,7 @@
             <section id="focus" class="view">
                 <div class="grid-2">
                     <div class="card">
+                        <div class="card-header">Kronometre (Serbest Çalışma)</div>
                         <div class="time-display" id="stopwatchDisplay">00:00:00</div>
                         <div class="time-controls">
                             <button class="btn btn-success" onclick="startStopwatch()" id="swStartBtn">Başlat</button>
@@ -597,7 +600,7 @@
     <script>
         // --- 0. TEMA YÖNETİMİ ---
         function initTheme() {
-            const savedTheme = localStorage.getItem('trkn_theme') || 'dark';
+            const savedTheme = localStorage.getItem('trkn_theme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
             
             if (window.innerWidth <= 768) {
@@ -617,13 +620,25 @@
         document.getElementById('calendar').value = currentDate;
         let currentUser = null; 
 
+        // GÜVENLİ VERİTABANI BAŞLATMASI
         let globalDb = JSON.parse(localStorage.getItem('trkn_db_pro'));
-        if(!globalDb) {
-            globalDb = { profile: { weight: null, height: null, age: null, gender: '', bmr: 0 }, library: [], days: {} };
+        
+        if(!globalDb || typeof globalDb !== 'object' || !globalDb.days || !globalDb.library || !globalDb.profile) {
+            console.warn("Eski veya bozuk veri tespit edildi, veritabanı onarılıyor...");
+            globalDb = { 
+                profile: { weight: null, height: null, age: null, gender: '', bmr: 0 }, 
+                library: [], 
+                days: {} 
+            };
+            localStorage.setItem('trkn_db_pro', JSON.stringify(globalDb));
         }
         let state = {};
         
-        globalDb.library.forEach(item => { if(!item.id) item.id = Date.now() + Math.random(); });
+        if (Array.isArray(globalDb.library)) {
+            globalDb.library.forEach(item => { if(!item.id) item.id = Date.now() + Math.random(); });
+        } else {
+            globalDb.library = [];
+        }
 
         function loadDayData(date) {
             if(!globalDb.days[date]) {
@@ -681,7 +696,6 @@
                         signOut(auth).catch(err => console.error(err));
                     }
                 } else {
-                    // Mobilde popup yerine güvenli yönlendirme (Redirect) metodunu çalıştırıyoruz
                     signInWithRedirect(auth, provider).catch(err => {
                         alert("Giriş başlatılamadı: " + err.message);
                     });
@@ -893,20 +907,29 @@
         const apiCache = {}; 
 
         const foodInput = document.getElementById('foodInput');
-        foodInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                const query = e.target.value.trim().toLowerCase();
-                const resultsList = document.getElementById('apiResultsList');
-                if (query.length < 3) {
-                    resultsList.innerHTML = `<li style="color:var(--warning)">Lütfen en az 3 harf girin.</li>`;
-                    resultsList.style.display = 'block'; return;
-                }
-                searchFoodApi(query);
+
+        foodInput.addEventListener('keyup', function(e) {
+            if (e.key === 'Enter' || e.keyCode === 13) {
+                triggerFoodSearch();
             }
         });
 
+        function triggerFoodSearch() {
+            const query = foodInput.value.trim().toLowerCase();
+            const resultsList = document.getElementById('apiResultsList');
+            
+            foodInput.blur(); 
+
+            if (query.length < 3) {
+                resultsList.innerHTML = `<li style="color:var(--warning)">Lütfen en az 3 harf girin.</li>`;
+                resultsList.style.display = 'block'; 
+                return;
+            }
+            searchFoodApi(query);
+        }
+
         async function searchFoodApi(query) {
-            const_resultsList = document.getElementById('apiResultsList');
+            const resultsList = document.getElementById('apiResultsList');
             if (apiCache[query]) { renderApiResults(apiCache[query], query); return; }
             resultsList.innerHTML = `<li style="color:var(--text-light)">🔍 Aranıyor...</li>`;
             resultsList.style.display = 'block';
@@ -984,7 +1007,7 @@
 
         let editingLibId = null;
         function addLibraryItem() {
-            const title = document.getElementById('libTitle').value.trim(); const_category = document.getElementById('libCategory').value.trim(); 
+            const title = document.getElementById('libTitle').value.trim(); const category = document.getElementById('libCategory').value.trim(); 
             const link = document.getElementById('libLink').value.trim(); const notes = document.getElementById('libNotes').value.trim();
             if(!title || !notes || !category) { alert("Lütfen Kaynak Adı, Kategori ve Çıkarım alanlarını doldurun."); return; }
 
@@ -1113,7 +1136,6 @@
             refreshHearts(); renderCalendarGrid(); renderLibrary();
             document.getElementById('noteEditor').innerHTML = state.note || "";
 
-            // Mobil ağ kesintilerinde veya gecikmeli kütüphane yüklenmelerinde grafikleri korumaya alan sarmalayıcı kontrol bloğu
             if (window.Chart && dashTaskChart && workoutChart && profileChart) {
                 dashTaskChart.data.datasets[0].data = state.tasks.length === 0 ? [0,0,1] : [c, p, 0]; dashTaskChart.update();
                 const wL=[], wD=[]; for(const[k,v] of Object.entries(state.workout.chartData)) { if(v>0){wL.push(k); wD.push(v);} }
