@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TRKN - Ultimate Yaşam Asistanı</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <link rel="apple-touch-icon" href="icon-512.png">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Montserrat:wght@800&display=swap" rel="stylesheet">
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDB8Mhz323xgncHq-n_N0j5pM1ma5YnT4s",
+            authDomain: "trkn-app.firebaseapp.com",
+            projectId: "trkn-app",
+            storageBucket: "trkn-app.firebasestorage.app",
+            messagingSenderId: "741635320528",
+            appId: "1:741635320528:web:d8264bc30f960c95a1ccd5"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+
+        window.firebaseAuth = { auth, signInWithPopup, provider, signOut, onAuthStateChanged };
+        window.firebaseDb = { db, doc, setDoc, getDoc };
+        window.dispatchEvent(new Event('firebase-ready'));
+    </script>
+
+    <style>
+        :root {
+            /* Aydınlık Tema Değişkenleri */
+            --bg: #f4f7f5; --sidebar-bg: #081c15; --card-bg: #ffffff;
+            --primary: #1b4332; --primary-light: #2d6a4f; --secondary: #40916c;
+            --accent: #52b788; --warning: #d97706; --danger: #dc2626;
+            --text-dark: #1f2937; --text-light: #6b7280; --border-color: #e5e7eb;
+            --input-bg: #fafafa;
+            --nav-height: 65px;
+            
+            /* Kalp Renkleri */
+            --heart-1: #dc2626; 
+            --heart-2: #fbbf24; 
+            --heart-3: #10b981; 
+        }
+
+        /* Karanlık Tema Değişkenleri */
+        [data-theme="dark"] {
+            --bg: #0f172a; --sidebar-bg: #020617; --card-bg: #1e293b;
+            --primary: #52b788; --primary-light: #74c69d; --secondary: #40916c;
+            --text-dark: #f8fafc; --text-light: #94a3b8; --border-color: #334155;
+            --input-bg: #0f172a;
+        }
+
+        [data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+
+        body {
+            margin: 0; font-family: 'Inter', sans-serif; background-color: var(--bg); 
+            display: flex; height: 100vh; height: 100dvh; overflow: hidden; color: var(--text-dark);
+            -webkit-tap-highlight-color: transparent; transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* YAN MENÜ */
+        .sidebar {
+            width: 260px; background-color: var(--sidebar-bg); color: white;
+            display: flex; flex-direction: column; padding: 30px 0;
+            box-shadow: 4px 0 20px rgba(0,0,0, 0.1); z-index: 10; overflow-y: auto; transition: 0.3s;
+        }
+        .brand {
+            font-family: 'Montserrat', sans-serif; font-size: 32px; font-weight: 800; 
+            text-align: center; margin-bottom: 10px; color: var(--accent); letter-spacing: 2px;
+            cursor: pointer; transition: transform 0.2s; user-select: none;
+            animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .brand:hover { transform: scale(1.05); }
+        .brand:active { transform: scale(0.95); }
+
+        .theme-toggle-btn {
+            margin: 0 20px 20px 20px; padding: 10px; background: rgba(255,255,255,0.05);
+            color: #b7e4c7; text-align: center; border-radius: 12px 4px 12px 4px; border: 1px solid rgba(255,255,255,0.1);
+            font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.3s;
+        }
+        .theme-toggle-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+
+        .nav-item {
+            padding: 14px 25px; cursor: pointer; font-size: 14px; font-weight: 600; 
+            display: flex; align-items: center; gap: 12px; transition: all 0.3s ease; 
+            border-left: 4px solid transparent; color: #b7e4c7;
+        }
+        .nav-item:hover, .nav-item.active { background-color: var(--primary); border-left: 4px solid var(--accent); color: #fff; }
+        .cloud-btn { background: #1e3a8a; color: #bfdbfe; border-left-color: #3b82f6 !important; margin-top: auto;}
+        .cloud-btn:hover { background: #1d4ed8; color: white; }
+        .red-alarm-btn { background: #7f1d1d; color: #fca5a5; border-left-color: #ef4444 !important; }
+        .red-alarm-btn:hover { background: #991b1b; color: white; }
+
+        /* MOBİL ALT NAVİGASYON */
+        .bottom-nav {
+            display: none; position: fixed; bottom: 0; left: 0; width: 100%; height: var(--nav-height);
+            background: var(--sidebar-bg); z-index: 1000; box-shadow: 0 -4px 15px rgba(0,0,0,0.1);
+            padding-bottom: env(safe-area-inset-bottom); overflow-x: auto; white-space: nowrap; transition: 0.3s;
+        }
+        .bottom-nav-item {
+            display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+            min-width: 60px; padding: 5px; color: #b7e4c7; font-size: 10px; font-weight: 600; transition: 0.2s;
+        }
+        .bottom-nav-item.active { color: var(--accent); transform: scale(1.1); }
+        .nav-icon { font-size: 18px; margin-bottom: 4px; }
+
+        /* ANA İÇERİK & ÜST BAR */
+        .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; height: 100%; }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; padding: 20px 40px; background: var(--bg); z-index: 5; transition: 0.3s; }
+        .top-bar h2 { margin: 0; font-size: 24px; color: var(--primary); font-weight: 800; animation: fadeInRight 0.5s ease; }
+        .date-picker { padding: 10px; border-radius: 12px 4px 12px 4px; border: 2px solid var(--border-color); font-family: 'Inter'; font-weight: 600; outline: none; cursor:pointer; background: var(--input-bg); color: var(--text-dark); transition: 0.3s; }
+        .date-picker:hover { border-color: var(--secondary); }
+
+        .main-content { flex: 1; padding: 0 40px 40px 40px; overflow-y: auto; scroll-behavior: smooth; }
+        .view { display: none; }
+        .view.active { display: block; animation: slideUpFade 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+
+        /* KARTLAR VE GENEL BİÇİM */
+        .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .card { background: var(--card-bg); padding: 25px; border-radius: 20px 6px 20px 6px; box-shadow: 0 8px 20px rgba(0,0,0,0.04); border: 1px solid var(--border-color); transition: 0.3s; }
+        .card-header { font-weight: 800; font-size: 16px; margin-bottom: 20px; color: var(--primary); border-bottom: 2px solid var(--bg); padding-bottom: 12px; transition: 0.3s;}
+
+        input:not([type="checkbox"]):not([type="date"]), select { width: 100%; padding: 12px; margin-bottom: 12px; border: 2px solid var(--border-color); border-radius: 12px 4px 12px 4px; box-sizing: border-box; background: var(--input-bg); color: var(--text-dark); font-family:inherit; transition:0.3s;}
+        input:focus, select:focus { border-color: var(--secondary); outline:none; }
+        
+        .btn { box-sizing: border-box; background: var(--primary); color: white; border: none; padding: 14px 20px; border-radius: 12px 4px 12px 4px; cursor: pointer; font-weight: 600; width: 100%; transition: 0.2s; font-size:15px; }
+        .btn:active { transform: scale(0.96); }
+        .btn-success { background: var(--secondary); }
+        .btn-success:hover { background: var(--primary-light); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: #b91c1c; }
+
+        .icon-btn { background: none; border: none; cursor: pointer; padding: 5px; font-size: 14px; transition: 0.2s; border-radius: 6px; }
+        .icon-btn:hover { background: rgba(0,0,0,0.08); transform: scale(1.1); }
+        [data-theme="dark"] .icon-btn:hover { background: rgba(255,255,255,0.1); }
+
+        .tab-container { display: flex; gap: 10px; margin-bottom: 15px; background: var(--bg); padding: 5px; border-radius: 14px 4px 14px 4px; transition: 0.3s; }
+        .tab-btn { flex: 1; padding: 10px; text-align: center; font-weight: 600; border-radius: 10px 2px 10px 2px; cursor: pointer; color: var(--text-light); transition: 0.3s; }
+        .tab-btn.active { background: var(--card-bg); color: var(--primary); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+
+        .heart-container { display: flex; gap: 10px; justify-content: center; margin: 15px 0; }
+        .heart { font-size: 35px; cursor: pointer; color: var(--border-color); transition: 0.3s; }
+        .heart.active-1 { color: var(--heart-1); filter: drop-shadow(0 0 5px rgba(220,38,38,0.5)); }
+        .heart.active-2 { color: var(--heart-2); filter: drop-shadow(0 0 5px rgba(251,191,36,0.5));}
+        .heart.active-3 { color: var(--heart-3); filter: drop-shadow(0 0 5px rgba(16,185,129,0.5));}
+        
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 15px; }
+        .cal-day { padding: 10px 0; text-align: center; border-radius: 8px 3px 8px 3px; font-size: 12px; font-weight: bold; background: var(--input-bg); color: var(--text-light); border: 1px solid transparent; cursor:pointer; transition:0.2s;}
+        .cal-day:hover { transform: scale(1.1); }
+        .cal-day.color-1 { background: rgba(220, 38, 38, 0.15); color: #dc2626; border-color: rgba(220, 38, 38, 0.3); } 
+        .cal-day.color-2 { background: rgba(251, 191, 36, 0.2); color: #d97706; border-color: rgba(251, 191, 36, 0.4); } 
+        .cal-day.color-3 { background: rgba(16, 185, 129, 0.15); color: #059669; border-color: rgba(16, 185, 129, 0.3); } 
+        .cal-day.today { border: 2px solid var(--primary); color: var(--primary); }
+
+        /* NOT EKRANI DÜZELTMESİ (Flex Wrap Eklendi) */
+        .editor-toolbar { 
+            display: flex; gap: 8px; background: var(--input-bg); padding: 10px; 
+            border-radius: 12px 4px 0 0; border: 1px solid var(--border-color); border-bottom: none; 
+            flex-wrap: wrap; 
+            align-items: center; transition: 0.3s;
+        }
+        .editor-btn { background: var(--card-bg); color: var(--text-dark); border: 1px solid var(--border-color); border-radius: 8px 2px 8px 2px; padding: 8px 12px; cursor: pointer; font-weight: bold; transition:0.2s; font-size:14px; display:flex; align-items:center; justify-content:center;}
+        .editor-btn:hover { border-color: var(--primary); }
+        .color-dot { width:16px; height:16px; border-radius:50%; display:inline-block; border: 1px solid rgba(0,0,0,0.1); margin-right:5px;}
+        
+        .a4-paper { 
+            width: 100%; max-width: 21cm; min-height: 40vh; height: auto; padding: 2cm; margin: 0 auto;
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 0 0 12px 4px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05); box-sizing: border-box; outline: none;
+            font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.5; color: var(--text-dark); transition: 0.3s;
+        }
+
+        .time-display { font-size: 48px; font-family: 'Montserrat', sans-serif; font-weight: 800; color: var(--primary); text-align: center; margin: 20px 0; letter-spacing: 2px; }
+        .time-controls { display: flex; gap: 10px; justify-content: center; }
+
+        .lib-category-title { width: 100%; border-bottom: 2px solid var(--border-color); padding-bottom: 8px; margin: 30px 0 15px 0; color: var(--primary); font-weight: 800; font-size: 18px; display:flex; align-items:center; gap:10px; transition: 0.3s;}
+        .library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
+        .library-card { background: var(--bg); padding: 18px; border-radius: 16px 4px 16px 4px; border-left: 4px solid var(--secondary); transition:0.3s; position:relative;}
+        .library-card:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(0,0,0,0.1);}
+        .lib-type { font-size: 11px; text-transform: uppercase; color: var(--text-light); font-weight: 800; }
+        .lib-title { font-size: 16px; font-weight: 800; color: var(--primary); margin: 5px 0; line-height:1.4; padding-right: 50px;}
+        .lib-link { display:inline-flex; align-items:center; gap:5px; margin-top:10px; font-size:12px; font-weight:bold; color:var(--text-dark); text-decoration:none; background:var(--input-bg); border: 1px solid var(--border-color); padding:5px 10px; border-radius:8px 2px 8px 2px; transition:0.2s;}
+        .lib-link:hover { border-color:var(--secondary); color: var(--secondary); }
+
+        .metric-box { text-align: center; padding: 15px; background: var(--bg); border-radius: 16px 4px 16px 4px; transition: 0.3s; }
+        .metric-big { font-size: 28px; font-weight: 800; color: var(--primary); margin: 5px 0; transition:color 0.3s;}
+        .metric-sub { font-size: 12px; color: var(--text-light); font-weight: 600; text-transform: uppercase; }
+        
+        .task-list { list-style: none; padding: 0; margin: 0; }
+        .task-list li { padding: 12px 15px; border: 1px solid var(--border-color); margin-bottom: 10px; border-radius: 12px 4px 12px 4px; display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); animation: slideInLeft 0.3s ease; transition: 0.3s;}
+        .task-list input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; accent-color: var(--secondary); }
+        .completed-task { opacity: 0.6; text-decoration: line-through; background: var(--bg) !important; border-color:transparent !important;}
+
+        .machine-group { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+        .machine-btn { flex: 1 1 calc(50% - 6px); background: var(--card-bg); color: var(--text-dark); border: 2px solid var(--border-color); border-radius: 12px 4px 12px 4px; padding: 8px 6px; cursor: pointer; font-weight: 600; text-align: center; font-size: 13px; min-height: 38px; transition:0.2s;}
+        .machine-btn.active { background: var(--primary); color: white; border-color: var(--primary); transform: translateY(-2px); }
+
+        .chart-container { position: relative; width: 100%; }
+
+        .api-search-results {
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px 4px 12px 4px;
+            max-height: 200px; overflow-y: auto; list-style: none; padding: 0; margin: -10px 0 15px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none; transition: 0.3s;
+        }
+        .api-search-results li {
+            padding: 12px 15px; cursor: pointer; font-size: 13px; border-bottom: 1px solid var(--border-color);
+            display: flex; justify-content: space-between; align-items: center; transition: 0.2s;
+        }
+        .api-search-results li:hover { background: var(--bg); color: var(--primary-light); }
+        .macro-tags { font-size: 11px; color: var(--text-light); font-weight: 600; }
+
+        .backup-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); z-index: 10000;
+            justify-content: center; align-items: center; animation: fadeInDark 0.3s ease;
+        }
+        .backup-content {
+            background: var(--card-bg); padding: 30px; border-radius: 20px 6px 20px 6px; max-width: 400px; width: 90%;
+            max-height: 90vh; overflow-y: auto; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 1px solid var(--border-color);
+        }
+        .backup-title { font-size: 20px; font-weight: 800; color: var(--primary); margin-bottom: 15px; text-align:center;}
+        .backup-desc { font-size: 13px; color: var(--text-light); line-height: 1.5; margin-bottom: 20px; text-align:center;}
+        .backup-actions { display: flex; flex-direction: column; gap: 12px; }
+
+        #red-alarm-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100dvh;
+            background: #0f172a; z-index: 9999; display: none; flex-direction: column;
+            justify-content: center; align-items: center; text-align: center; color: white;
+            animation: fadeInDark 1s ease forwards;
+        }
+        
+        .nutrition-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); 
+            gap: 15px; 
+            margin-top: 15px; 
+        }
+
+        @keyframes slideUpFade { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideInLeft { from { opacity: 0; transform: translateX(-15px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes fadeInRight { from { opacity: 0; transform: translateX(-15px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes popIn { 0% { opacity: 0; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1); } }
+        @keyframes fadeInDark { from { opacity: 0; } to { opacity: 1; } }
+
+        @media (max-width: 992px) {
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            .sidebar { width: 220px; }
+            .nav-item { padding: 14px 15px; }
+            .main-content { padding: 0 25px 25px 25px; }
+        }
+
+        /* MOBİL DÜZENLEMELERİ */
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .bottom-nav { display: flex; }
+            
+            .top-bar { padding: 15px 20px; flex-direction: row; gap: 10px; align-items: center; justify-content: space-between;}
+            .top-bar h2 { font-size: 18px; white-space: normal; word-wrap: break-word; max-width: 60%; line-height: 1.3; }
+            .date-picker { width: auto; font-size: 14px; padding: 6px 10px; } 
+            
+            .main-content { padding: 0 15px calc(var(--nav-height) + 30px) 15px; }
+            .card { padding: 15px; border-radius: 16px 4px 16px 4px; }
+            .card-header { font-size: 15px; margin-bottom: 15px; }
+            
+            .a4-paper { padding: 15px; min-height: 50vh; }
+            .machine-btn { flex: 1 1 100%; }
+            
+            input, select, textarea { font-size: 16px !important; } /* Zoom engeli */
+        }
+
+        @media (max-height: 500px) and (max-width: 768px) {
+            .bottom-nav { display: none !important; }
+            .main-content { padding-bottom: 20px !important; } 
+        }
+    </style>
+</head>
+<body>
+
+    <div class="backup-modal" id="backupModal" onclick="closeBackupModal(event)">
+        <div class="backup-content">
+            <div class="backup-title">🛡️ TRKN Veri Güvenliği</div>
+            <div class="backup-desc">Bulut sistemi devrede değilken verileriniz tarayıcınızda şifreli saklanır. Manuel yedek alabilir veya yükleyebilirsiniz.</div>
+            
+            <div class="backup-actions">
+                <button class="btn btn-success" onclick="exportData()">📤 Veriyi Dışarı Aktar (Export)</button>
+                <label class="btn" style="display:flex; align-items:center; justify-content:center; cursor:pointer; background:var(--primary); margin:0;">
+                    📥 Veriyi İçeri Aktar (Import)
+                    <input type="file" id="importFile" accept=".json" onchange="importData(event)" style="display:none;">
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <nav class="sidebar">
+        <div class="brand" onclick="openBackupModal()" title="Güvenlik & Yedekleme Menüsü">TRKN</div>
+        <div class="theme-toggle-btn" onclick="toggleTheme()">🌓 Temayı Değiştir</div>
+        
+        <div class="nav-item active" onclick="switchTab('dashboard', this)">📊 Ana Sayfa</div>
+        <div class="nav-item" onclick="switchTab('tasks', this)">✅ Hedefler</div>
+        <div class="nav-item" onclick="switchTab('workout', this)">🦾 Spor Merkezi</div>
+        <div class="nav-item" onclick="switchTab('profile', this)">🧬 Profil</div>
+        <div class="nav-item" onclick="switchTab('note', this)">📝 Not</div>
+        <div class="nav-item" onclick="switchTab('library', this)">📚 Kütüphane</div>
+        <div class="nav-item" onclick="switchTab('focus', this)">⏱️ Odak</div>
+        
+        <div class="nav-item cloud-btn" id="sidebarAuthBtn" onclick="toggleAuth()">☁️ Bulut Senk. (Giriş)</div>
+        <div class="nav-item red-alarm-btn" onclick="triggerRedAlarm(true)">🚨 Kırmızı Alarm</div>
+    </nav>
+
+    <div class="main-wrapper">
+        
+        <div id="red-alarm-screen">
+            <h1 style="color: #ef4444; font-size: 40px; margin-bottom: 10px;">Sistem Durduruldu</h1>
+            <div style="font-size: 20px; font-weight: 300; max-width: 600px; line-height: 1.6; margin-bottom: 40px; color: #e2e8f0; padding: 20px;">
+                "Bugün zor bir gün. Performans, kaloriler veya görevler şu an önemsiz. Bütün sistemleri senin için kapattım. Bugün sadece dinlen. Yarın yeniden başlarız."
+            </div>
+            <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 15px; text-align: left;">
+                <h3 style="margin-top:0; color:#94a3b8;">Sana İyi Gelecek Şeyler:</h3>
+                <ul style="color: #cbd5e1; line-height: 1.8;">
+                    <li>Sıcak bir duş al.</li>
+                    <li>Sadece yatarak sevdiğin bir müziği dinle.</li>
+                    <li>Sıcak bir çay veya kahve hazırla.</li>
+                    <li>Ekrana bakmadan gözlerini dinlendir.</li>
+                </ul>
+            </div>
+            <button class="btn" style="width: auto; margin-top: 40px; background: #334155;" onclick="triggerRedAlarm(false)">Ben İyiyim, Sistemi Aç</button>
+        </div>
+
+        <div class="top-bar">
+            <h2 id="pageTitle" onclick="openBackupModal()" style="cursor:pointer;" title="Yedekleme Paneli">Ana Sayfa</h2>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <div class="icon-btn" id="mobileAuthBtn" style="font-size:24px; display:none;" onclick="toggleAuth()" title="Bulut Girişi">☁️</div>
+                <input type="date" id="calendar" class="date-picker" onchange="changeDate(this.value)">
+            </div>
+        </div>
+
+        <main class="main-content">
+            
+            <section id="dashboard" class="view active">
+                <div class="grid-3" style="margin-bottom: 20px;">
+                    <div class="card">
+                        <div class="card-header">Enerji Bilançosu</div>
+                        <div style="display:flex; gap:10px; margin-bottom: 15px;">
+                            <div class="metric-box" style="flex:1;"><div class="metric-sub">Alınan</div><div class="metric-big" id="dash-intake" style="color: var(--warning);">0</div></div>
+                            <div class="metric-box" style="flex:1; border: 1px solid var(--secondary);"><div class="metric-sub" style="color: var(--primary);">Harcanan</div><div class="metric-big" id="dash-expenditure" style="color: var(--accent);">0</div></div>
+                        </div>
+                        <div class="metric-sub" style="text-align:center;" id="dash-energy-status">-</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">Görev Disiplini</div>
+                        <div class="chart-container" style="height: 160px;"><canvas id="dashTaskChart"></canvas></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">Bugünün Antrenmanı</div>
+                        <div class="metric-box" style="margin-bottom: 10px;"><div class="metric-sub">Sporla Yakılan</div><div class="metric-big" id="dash-workout-burn" style="color: var(--primary);">0</div></div>
+                        <ul id="dash-recent-workouts" style="list-style:none; padding:0; margin:0; font-size:13px; color:var(--text-dark); line-height: 1.6;"></ul>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card" style="text-align: center;">
+                        <div class="card-header" style="text-align: left;">Bugün Nasıldı?</div>
+                        <p style="color: var(--text-light); font-size: 13px;">Günün verimliliğine göre puan ver. Bu takvimine renk olarak yansıyacak.</p>
+                        <div class="heart-container" id="heartContainer">
+                            <div class="heart" onclick="setRating(1)">♥</div><div class="heart" onclick="setRating(2)">♥</div><div class="heart" onclick="setRating(3)">♥</div>
+                        </div>
+                        <div id="rating-text" style="font-weight: bold; margin-top: 10px; color: var(--text-light);">Puan Verilmedi</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>Aylık Performans Haritası</span>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="editor-btn" style="padding: 2px 10px; font-size: 16px;" onclick="shiftDate(-1)" title="Önceki Gün">←</button>
+                                <button class="editor-btn" style="padding: 2px 10px; font-size: 16px;" onclick="shiftDate(1)" title="Sonraki Gün">→</button>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-light); margin-bottom: 5px;">
+                            <span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span>
+                        </div>
+                        <div class="calendar-grid" id="monthGrid"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tasks" class="view">
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-header">Yeni Görev Tanımla</div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="taskInput" placeholder="Sorumluluğunu yazıp Enter'a bas..." style="margin-bottom:0;">
+                        <button class="btn" onclick="addTask()" style="width: auto;">Ekle</button>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="card"><div class="card-header" style="color: var(--warning);">⏳ Kalanlar (<span id="pendingCount">0</span>)</div><ul class="task-list" id="pendingTasksList"></ul></div>
+                    <div class="card"><div class="card-header" style="color: var(--secondary);">✅ Tamamlananlar (<span id="completedCount">0</span>)</div><ul class="task-list" id="completedTasksList"></ul></div>
+                </div>
+            </section>
+
+            <section id="workout" class="view">
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="tab-container">
+                            <div class="tab-btn active" onclick="switchWorkoutType('machine')" id="tab-machine">Ağırlık & Makine</div>
+                            <div class="tab-btn" onclick="switchWorkoutType('cardio')" id="tab-cardio">Kardiyo</div>
+                        </div>
+
+                        <div id="panel-machine">
+                            <div class="card-header" style="font-size:14px; margin-bottom:10px; border:none; padding:0;">Ekipman Seçimi</div>
+                            <div class="machine-group" id="machineGroup">
+                                <button class="machine-btn active" data-val="Seated Chest Press">Seated Chest Press</button>
+                                <button class="machine-btn" data-val="Pectoral Fly">Pectoral Fly</button>
+                                <button class="machine-btn" data-val="Shoulder Press Machine">Shoulder Press</button>
+                                <button class="machine-btn" data-val="Lat Pulldown">Lat Pulldown</button>
+                                <button class="machine-btn" data-val="Leg Press">Leg Press</button>
+                                <button class="machine-btn" data-val="Leg Extension">Leg Extension</button>
+                                <button class="machine-btn" data-val="Cable Crossover">Cable Crossover</button>
+                                <button class="machine-btn" data-val="Smith Machine">Smith Machine</button>
+                                <button class="machine-btn" data-val="Serbest Ağırlık">Serbest Ağırlık</button>
+                            </div>
+                            <div style="display:flex; gap:10px;">
+                                <div style="flex:1;"><label class="metric-sub">Set</label><input type="number" id="w-sets" placeholder="Örn: 3" min="1"></div>
+                                <div style="flex:1;"><label class="metric-sub">Tekrar</label><input type="number" id="w-reps" placeholder="Örn: 10" min="1"></div>
+                            </div>
+                            <label class="metric-sub">Kaldırılan Ağırlık (kg)</label>
+                            <input type="number" id="w-weight" placeholder="Örn: 50" min="1" style="margin-bottom: 15px;">
+                        </div>
+
+                        <div id="panel-cardio" style="display:none;">
+                            <div class="card-header" style="font-size:14px; margin-bottom:10px; border:none; padding:0;">Kardiyo Türü</div>
+                            <div class="machine-group" id="cardioGroup">
+                                <button class="machine-btn active" data-val="Koşu" data-met="9.8">Koşu</button>
+                                <button class="machine-btn" data-val="Yürüyüş" data-met="3.8">Yürüyüş</button>
+                                <button class="machine-btn" data-val="Bisiklet" data-met="7.5">Bisiklet</button>
+                                <button class="machine-btn" data-val="Yüzme" data-met="8.0">Yüzme</button>
+                            </div>
+                            <label class="metric-sub">Süre (Dakika)</label>
+                            <input type="number" id="c-duration" placeholder="Örn: 30" min="1" style="margin-bottom: 15px;">
+                        </div>
+
+                        <button class="btn btn-success" onclick="logWorkout()">⚡ Sistemi İşle ve Kaloriye Ekle</button>
+                    </div>
+                    
+                    <div class="card" style="display: flex; flex-direction: column;">
+                        <div class="card-header">Bölgesel Enerji Harcaması (Kcal)</div>
+                        <div class="chart-container" style="flex-grow: 1; min-height: 250px;"><canvas id="workoutChart"></canvas></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="profile" class="view">
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header">Global Profil & VKİ</div>
+                        <div style="display:flex; gap:10px;">
+                            <div style="flex:1;"><label class="metric-sub">Cinsiyet</label>
+                                <select id="gender">
+                                    <option value="" disabled selected>Seçiniz</option>
+                                    <option value="male">Erkek</option>
+                                    <option value="female">Kadın</option>
+                                </select>
+                            </div>
+                            <div style="flex:1;"><label class="metric-sub">Yaş</label><input type="number" id="age" placeholder="Örn: 25" min="1"></div>
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <div style="flex:1;"><label class="metric-sub">Boy (cm)</label><input type="number" id="height" placeholder="Örn: 180" min="1"></div>
+                            <div style="flex:1;"><label class="metric-sub">Kilo (kg)</label><input type="number" id="body-weight" placeholder="Örn: 75" min="1"></div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn" style="flex: 2;" onclick="updateProfile()">Kaydet ve Hesapla</button>
+                            <button class="btn btn-danger" style="flex: 1;" onclick="resetProfile()" title="Eski verileri sıfırlar">Sıfırla</button>
+                        </div>
+
+                        <div class="metric-box" style="margin-top: 20px; border: 1px solid var(--secondary);">
+                            <div class="metric-sub">Vücut Kitle İndeksi (VKİ)</div>
+                            <div class="metric-big" id="bmi-val" style="color: var(--secondary);">0.0</div>
+                            <div class="metric-sub" id="bmi-status" style="color: var(--text-dark);">Bilgi Bekleniyor</div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">Günlük Beslenme Girişi (API Destekli)</div>
+                        <div style="margin-bottom: 10px;">
+                            <input type="text" id="foodInput" placeholder="Yiyecek yazıp Enter'a basın... (Örn: apple)" style="margin-bottom:0;">
+                        </div>
+                        <ul class="api-search-results" id="apiResultsList"></ul>
+                        
+                        <div class="card-header" style="border:none; padding:0; margin-top:15px;">TRKN Besin ve Enerji Dengesi</div>
+                        <div class="chart-container" style="height: 180px;"><canvas id="profileChart"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-header" style="margin-bottom: 5px;">Bugün Tüketilenler Listesi</div>
+                    <div id="nutrition-history-grid" class="nutrition-grid"></div>
+                </div>
+            </section>
+
+            <section id="note" class="view">
+                <div style="max-width: 21cm; margin: 0 auto; margin-bottom: 10px;">
+                    <p style="color: var(--text-light); text-align:center;">Bugün olanları, hedeflerini veya aklına gelenleri buraya not al. Bu belge o güne özel takvimde saklanır.</p>
+                </div>
+                <div style="max-width: 21cm; margin: 0 auto;">
+                    <div class="editor-toolbar">
+                        <button class="editor-btn" onclick="formatDoc('bold')"><b>B</b></button>
+                        <button class="editor-btn" onclick="formatDoc('italic')"><i>I</i></button>
+                        <button class="editor-btn" onclick="formatDoc('underline')"><u>U</u></button>
+                        
+                        <div style="width:1px; height:20px; background:var(--border-color); margin: 0 5px;"></div>
+                        <button class="editor-btn" onclick="formatDoc('foreColor', '#000000')" title="Siyah"><span class="color-dot" style="background:#000000;"></span></button>
+                        <button class="editor-btn" onclick="formatDoc('foreColor', '#ffffff')" title="Beyaz"><span class="color-dot" style="background:#ffffff; border: 1px solid #ccc;"></span></button>
+                        <button class="editor-btn" onclick="formatDoc('foreColor', '#16a34a')" title="Yeşil"><span class="color-dot" style="background:#16a34a;"></span></button>
+                        <div style="width:1px; height:20px; background:var(--border-color); margin: 0 5px;"></div>
+
+                        <select class="editor-btn" style="padding: 6px; font-weight:normal;" onchange="formatDoc('fontSize', this.value)">
+                            <option value="3">Normal</option><option value="4">Büyük</option><option value="5">Başlık</option>
+                        </select>
+                        <button class="btn btn-success" style="padding: 6px 15px; margin-left: auto; width: auto;" onclick="saveNote()">💾 Kaydet</button>
+                    </div>
+                    <div class="a4-paper" id="noteEditor" contenteditable="true"></div>
+                </div>
+            </section>
+
+            <section id="library" class="view">
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-header">Kütüphane Yönetimi</div>
+                    <div class="grid-2">
+                        <div>
+                            <label class="metric-sub">Kaynak Adı</label>
+                            <input type="text" id="libTitle">
+                        </div>
+                        <div>
+                            <label class="metric-sub">Kategori (Seç veya Yeni Yaz)</label>
+                            <input type="text" id="libCategory" list="cat-list" placeholder="Örn: Yazılım, Tarih...">
+                            <datalist id="cat-list"></datalist>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="metric-sub">Bağlantı Linki (İsteğe Bağlı)</label>
+                        <input type="url" id="libLink">
+                    </div>
+                    <label class="metric-sub">Ana Fikir / Çıkarım</label>
+                    <input type="text" id="libNotes">
+                    
+                    <button class="btn btn-success" id="libAddBtn" onclick="addLibraryItem()">Kütüphaneye Ekle</button>
+                </div>
+                
+                <div id="libraryContainer"></div>
+            </section>
+
+            <section id="focus" class="view">
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-header">Kronometre (Serbest Çalışma)</div>
+                        <div class="time-display" id="stopwatchDisplay">00:00:00</div>
+                        <div class="time-controls">
+                            <button class="btn btn-success" onclick="startStopwatch()" id="swStartBtn">Başlat</button>
+                            <button class="btn" style="background: var(--warning);" onclick="stopStopwatch()">Duraklat</button>
+                            <button class="btn" style="background: var(--danger);" onclick="resetStopwatch()">Sıfırla</button>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">Geri Sayım (Pomodoro)</div>
+                        <div class="time-display" id="countdownDisplay">25:00</div>
+                        <input type="number" id="cdInput" value="25" style="text-align:center;">
+                        <div class="time-controls">
+                            <button class="btn btn-success" onclick="startCountdown()" id="cdStartBtn">Başlat</button>
+                            <button class="btn" style="background: var(--warning);" onclick="stopCountdown()">Duraklat</button>
+                            <button class="btn" style="background: var(--danger);" onclick="resetCountdown()">Sıfırla</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <nav class="bottom-nav">
+        <div class="bottom-nav-item active" onclick="switchTab('dashboard', this)"><span class="nav-icon">📊</span>Ana Sayfa</div>
+        <div class="bottom-nav-item" onclick="switchTab('tasks', this)"><span class="nav-icon">✅</span>Görev</div>
+        <div class="bottom-nav-item" onclick="switchTab('workout', this)"><span class="nav-icon">🦾</span>Spor</div>
+        <div class="bottom-nav-item" onclick="switchTab('profile', this)"><span class="nav-icon">🧬</span>Profil</div>
+        <div class="bottom-nav-item" onclick="switchTab('note', this)"><span class="nav-icon">📝</span>Not</div>
+        <div class="bottom-nav-item" onclick="switchTab('library', this)"><span class="nav-icon">📚</span>Arşiv</div>
+        <div class="bottom-nav-item" onclick="switchTab('focus', this)"><span class="nav-icon">⏱️</span>Odak</div>
+    </nav>
+
+    <script>
+        // --- 0. TEMA YÖNETİMİ ---
+        function initTheme() {
+            const savedTheme = localStorage.getItem('trkn_theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            
+            if (window.innerWidth <= 768) {
+                document.getElementById('mobileAuthBtn').style.display = 'block';
+            }
+        }
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('trkn_theme', newTheme);
+        }
+        initTheme();
+
+        // --- 1. VERİ MİMARİSİ (LOCAL & CLOUD) ---
+        let currentDate = new Date().toISOString().split('T')[0]; 
+        document.getElementById('calendar').value = currentDate;
+        let currentUser = null; 
+
+        let globalDb = JSON.parse(localStorage.getItem('trkn_db_pro'));
+        if(!globalDb) {
+            globalDb = { profile: { weight: null, height: null, age: null, gender: '', bmr: 0 }, library: [], days: {} };
+        }
+        let state = {};
+        
+        globalDb.library.forEach(item => { if(!item.id) item.id = Date.now() + Math.random(); });
+
+        function loadDayData(date) {
+            if(!globalDb.days[date]) {
+                globalDb.days[date] = {
+                    tasks: [], rating: 0, note: "", redAlarm: false, 
+                    nutrition: { kcal: 0, protein: 0, carbs: 0, fat: 0, history: [] },
+                    workout: { currentMode:'machine', totalBurned: 0, history: [], chartData: { 'Seated Chest Press': 0, 'Pectoral Fly': 0, 'Shoulder Press Machine': 0, 'Lat Pulldown': 0, 'Leg Press': 0, 'Leg Extension': 0, 'Cable Crossover': 0, 'Smith Machine': 0, 'Serbest Ağırlık': 0, 'Koşu':0, 'Yürüyüş':0, 'Bisiklet':0, 'Yüzme':0 } }
+                };
+            }
+            state = globalDb.days[date];
+            
+            if (!state.nutrition) { state.nutrition = { kcal: 0, protein: 0, carbs: 0, fat: 0, history: [] }; }
+            if (!state.nutrition.history) { state.nutrition.history = []; }
+
+            if(state.redAlarm) triggerRedAlarm(true, false);
+            else document.getElementById('red-alarm-screen').style.display = 'none';
+        }
+
+        window.addEventListener('firebase-ready', () => {
+            const { auth, onAuthStateChanged, signInWithPopup, provider, signOut } = window.firebaseAuth;
+            const { db, doc, getDoc, setDoc } = window.firebaseDb;
+
+            onAuthStateChanged(auth, async (user) => {
+                const sBtn = document.getElementById('sidebarAuthBtn');
+                const mBtn = document.getElementById('mobileAuthBtn');
+                
+                if (user) {
+                    currentUser = user;
+                    sBtn.innerHTML = `🔄 ${user.displayName.split(' ')[0]} (Çıkış)`;
+                    mBtn.style.color = 'var(--secondary)';
+                    
+                    try {
+                        const userRef = doc(db, "users", user.uid);
+                        const docSnap = await getDoc(userRef);
+                        
+                        if (docSnap.exists()) {
+                            globalDb = docSnap.data();
+                            localStorage.setItem('trkn_db_pro', JSON.stringify(globalDb));
+                            loadDayData(currentDate);
+                            refreshAllUI();
+                        } else {
+                            await setDoc(userRef, globalDb);
+                        }
+                    } catch(err) { console.error("Firebase Veri Çekme Hatası:", err); }
+                } else {
+                    currentUser = null;
+                    sBtn.innerHTML = `☁️ Bulut Senk. (Giriş)`;
+                    mBtn.style.color = 'inherit';
+                }
+            });
+
+            window.toggleAuth = () => {
+                if(currentUser) {
+                    if(confirm("Bulut hesabından çıkış yapmak istiyor musun? (Çevrimdışı moda geçilecek)")) {
+                        signOut(auth).catch(err => console.error(err));
+                    }
+                } else {
+                    signInWithPopup(auth, provider)
+                        .then(() => alert("☁️ Bulut senkronizasyonu aktif!"))
+                        .catch(err => console.error("Giriş iptal edildi.", err));
+                }
+            };
+        });
+
+        function saveData() {
+            globalDb.days[currentDate] = state;
+            localStorage.setItem('trkn_db_pro', JSON.stringify(globalDb));
+            
+            if (currentUser && window.firebaseDb) {
+                const { db, doc, setDoc } = window.firebaseDb;
+                const userRef = doc(db, "users", currentUser.uid);
+                setDoc(userRef, globalDb).catch(err => console.error("Firebase senkronizasyon hatası:", err));
+            }
+        }
+
+        function openBackupModal() { document.getElementById('backupModal').style.display = 'flex'; }
+        function closeBackupModal(event) { if (event.target.id === 'backupModal') document.getElementById('backupModal').style.display = 'none'; }
+        
+        function exportData() {
+            try {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(globalDb, null, 2));
+                const downloadAnchor = document.createElement('a');
+                downloadAnchor.setAttribute("href", dataStr);
+                downloadAnchor.setAttribute("download", "trkn_yedek.json");
+                document.body.appendChild(downloadAnchor);
+                downloadAnchor.click();
+                downloadAnchor.remove();
+            } catch (error) { alert("Yedek oluşturulurken hata oluştu: " + error.message); }
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsedDb = JSON.parse(e.target.result);
+                    if (parsedDb.profile && parsedDb.library && parsedDb.days) {
+                        globalDb = parsedDb;
+                        saveData(); 
+                        loadDayData(currentDate);
+                        refreshAllUI();
+                        document.getElementById('backupModal').style.display = 'none';
+                        alert("🎉 Verileriniz başarıyla geri yüklendi!");
+                    } else { alert("Geçersiz yedek dosyası yapısı."); }
+                } catch (error) { alert("Dosya okunurken hata oluştu: " + error.message); }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- 2. GRAFİKLER ---
+        Chart.defaults.font.family = 'Inter';
+        let dashTaskChart = new Chart(document.getElementById('dashTaskChart'), { type: 'doughnut', data: { labels: ['Tamamlanan', 'Kalan', 'Boş'], datasets: [{ data: [0, 0, 1], backgroundColor: ['#40916c', '#d97706', '#e5e7eb'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right', labels:{boxWidth:12} } } } });
+        let workoutChart = new Chart(document.getElementById('workoutChart'), { type: 'bar', data: { labels: [], datasets: [{ label: 'Yakılan (kcal)', data: [], backgroundColor: '#2d6a4f', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } } });
+        let profileChart = new Chart(document.getElementById('profileChart'), { type: 'bar', data: { labels: ['Kalori (kcal)', 'Protein (g)', 'Karbonh. (g)', 'Yağ (g)'], datasets: [ { label: 'Alınan', data: [0, 0, 0, 0], backgroundColor: '#d97706', borderRadius: 4 }, { label: 'Hedef/Harcanan', data: [0, 0, 0, 0], backgroundColor: '#40916c', borderRadius: 4 } ] }, options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 12 } } }, scales: { x: { beginAtZero: true } } } });
+
+        // --- 3. ARAYÜZ VE GEÇİŞLER ---
+        const titles = { 'dashboard':'Ana Sayfa', 'tasks':'Görev Yöneticisi', 'workout':'Antrenman Merkezi', 'profile':'Profil', 'note':'Günlük Notlar', 'library':'Kütüphane', 'focus':'Odak' };
+        
+        function switchTab(tabId, el) {
+            document.querySelectorAll('.view').forEach(e => e.classList.remove('active'));
+            document.querySelectorAll('.nav-item, .bottom-nav-item').forEach(e => e.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            if(el) {
+                let index = Array.from(el.parentNode.children).indexOf(el);
+                if(el.parentNode.classList.contains('sidebar')) {
+                   const elements = Array.from(el.parentNode.querySelectorAll('.nav-item'));
+                   index = elements.indexOf(el);
+                }
+                document.querySelectorAll('.sidebar .nav-item')[index]?.classList.add('active');
+                
+                const bottomNavItem = document.querySelectorAll('.bottom-nav .bottom-nav-item')[index];
+                if (bottomNavItem) {
+                    bottomNavItem.classList.add('active');
+                    bottomNavItem.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                }
+            }
+            document.getElementById('pageTitle').innerText = titles[tabId];
+            const datePicker = document.getElementById('calendar');
+            if(['library', 'focus'].includes(tabId)) { datePicker.style.display = 'none'; } else { datePicker.style.display = 'block'; }
+        }
+
+        function shiftDate(offset) {
+            let d = new Date(currentDate); d.setDate(d.getDate() + offset);
+            let newDateStr = d.toISOString().split('T')[0];
+            document.getElementById('calendar').value = newDateStr; changeDate(newDateStr);
+        }
+
+        function changeDate(newDate) { if(!newDate) return; currentDate = newDate; loadDayData(currentDate); refreshAllUI(); }
+
+        function switchWorkoutType(type) {
+            state.workout.currentMode = type;
+            document.getElementById('tab-machine').classList.remove('active'); document.getElementById('tab-cardio').classList.remove('active');
+            document.getElementById(`tab-${type}`).classList.add('active');
+            document.getElementById('panel-machine').style.display = type === 'machine' ? 'block' : 'none'; document.getElementById('panel-cardio').style.display = type === 'cardio' ? 'block' : 'none';
+        }
+
+        document.querySelectorAll('.machine-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                this.parentNode.querySelectorAll('.machine-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        document.getElementById('taskInput').addEventListener('keypress', function (e) { if (e.key === 'Enter') addTask(); });
+
+        document.addEventListener('click', function(e) {
+            const apiList = document.getElementById('apiResultsList');
+            const foodInput = document.getElementById('foodInput');
+            if (e.target !== apiList && e.target !== foodInput) {
+                apiList.style.display = 'none';
+            }
+        });
+
+        // --- 4. KIRMIZI ALARM & TAKVİM ---
+        function triggerRedAlarm(activate, doSave = true) { document.getElementById('red-alarm-screen').style.display = activate ? 'flex' : 'none'; state.redAlarm = activate; if(doSave) saveData(); }
+        
+        function setRating(score) { 
+            state.rating = (state.rating === score) ? 0 : score; 
+            refreshHearts(); 
+            saveData(); 
+            renderCalendarGrid(); 
+        }
+        
+        function refreshHearts() {
+            document.querySelectorAll('.heart').forEach((h, i) => { h.className = 'heart'; if(i < state.rating) h.classList.add(`active-${state.rating}`); });
+            const texts = ["Puan Verilmedi", "1/3 - Zor Bir Gün (Kırmızı)", "2/3 - Fena Değil (Sarı)", "3/3 - Harika Bir Gün! (Yeşil)"];
+            document.getElementById('rating-text').innerText = texts[state.rating];
+        }
+
+        function renderCalendarGrid() {
+            const grid = document.getElementById('monthGrid'); grid.innerHTML = '';
+            let today = new Date(currentDate); let startDay = new Date(today); startDay.setDate(today.getDate() - 27);
+            for(let i=0; i<28; i++) {
+                let d = new Date(startDay); d.setDate(startDay.getDate() + i); let dateStr = d.toISOString().split('T')[0];
+                let dayDiv = document.createElement('div'); dayDiv.className = 'cal-day'; dayDiv.innerText = d.getDate();
+                if(globalDb.days[dateStr] && globalDb.days[dateStr].rating > 0) dayDiv.classList.add(`color-${globalDb.days[dateStr].rating}`);
+                if(dateStr === currentDate) dayDiv.classList.add('today');
+                dayDiv.onclick = () => { document.getElementById('calendar').value = dateStr; changeDate(dateStr); };
+                grid.appendChild(dayDiv);
+            }
+        }
+
+        // --- 5. MODÜL FONKSİYONLARI ---
+        function addTask() { 
+            const input = document.getElementById('taskInput'); 
+            if(input.value.trim() === '') return; 
+            state.tasks.push({ id: Date.now(), text: input.value, completed: false }); 
+            input.value = ''; refreshAllUI(); 
+        }
+        function toggleTask(id) { const task = state.tasks.find(t => t.id === id); if(task) task.completed = !task.completed; refreshAllUI(); }
+        function deleteTask(id) { state.tasks = state.tasks.filter(t => t.id !== id); refreshAllUI(); }
+        function editTask(id) {
+            const task = state.tasks.find(t => t.id === id);
+            if(task) {
+                const newText = prompt("Görevi düzenle:", task.text);
+                if(newText !== null && newText.trim() !== "") { task.text = newText.trim(); refreshAllUI(); }
+            }
+        }
+
+        function logWorkout() {
+            let burned = 0; let logText = ""; let category = ""; let baseWeight = globalDb.profile.weight || 75; 
+            if(state.workout.currentMode === 'machine') {
+                const btn = document.querySelector('#machineGroup .active'); category = btn.getAttribute('data-val');
+                const sets = parseInt(document.getElementById('w-sets').value); 
+                const reps = parseInt(document.getElementById('w-reps').value); 
+                const weight = parseFloat(document.getElementById('w-weight').value);
+                if(!weight || weight <= 0 || !sets || sets <= 0 || !reps || reps <= 0) { alert("Lütfen set, tekrar ve ağırlık değerlerini geçerli olarak giriniz."); return; }
+                burned = Math.round((sets * reps * weight) * 0.04) + Math.round(sets * 1.5 * 3);
+                logText = `${category}: ${sets}x${reps} (${weight}kg) -> +${burned}kcal`;
+            } else {
+                const btn = document.querySelector('#cardioGroup .active'); category = btn.getAttribute('data-val');
+                const met = parseFloat(btn.getAttribute('data-met')); 
+                const dur = parseFloat(document.getElementById('c-duration').value);
+                if(!dur || dur <= 0) { alert("Lütfen geçerli bir süre giriniz."); return; }
+                burned = Math.round(met * baseWeight * (dur / 60));
+                logText = `${category}: ${dur}dk -> +${burned}kcal`;
+            }
+            if(state.workout.chartData[category] === undefined) state.workout.chartData[category] = 0;
+            state.workout.chartData[category] += burned;
+            state.workout.history.unshift({ id: Date.now(), text: logText, burned: burned, category: category }); 
+            if(state.workout.history.length > 10) state.workout.history.pop();
+            refreshAllUI();
+        }
+
+        function deleteWorkout(id) {
+            const index = state.workout.history.findIndex(w => w.id === id);
+            if(index !== -1) {
+                const w = state.workout.history[index];
+                if(state.workout.chartData[w.category]) { 
+                    state.workout.chartData[w.category] = Math.max(0, state.workout.chartData[w.category] - w.burned); 
+                }
+                state.workout.history.splice(index, 1); refreshAllUI();
+            }
+        }
+
+        // --- EDAMAM KORUMALI API KODU ---
+        const EDAMAM_APP_ID = '6dbf239b'; 
+        const EDAMAM_APP_KEY = '108010bc882d0a8532e0b1250778e597'; 
+        const apiCache = {}; 
+
+        const foodInput = document.getElementById('foodInput');
+        foodInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const query = e.target.value.trim().toLowerCase();
+                const resultsList = document.getElementById('apiResultsList');
+                if (query.length < 3) {
+                    resultsList.innerHTML = `<li style="color:var(--warning)">Lütfen en az 3 harf girin.</li>`;
+                    resultsList.style.display = 'block'; return;
+                }
+                searchFoodApi(query);
+            }
+        });
+
+        async function searchFoodApi(query) {
+            const resultsList = document.getElementById('apiResultsList');
+            if (apiCache[query]) { renderApiResults(apiCache[query], query); return; }
+            resultsList.innerHTML = `<li style="color:var(--text-light)">🔍 Aranıyor...</li>`;
+            resultsList.style.display = 'block';
+
+            try {
+                const url = `https://api.edamam.com/api/food-database/v2/parser?app_id=${EDAMAM_APP_ID}&app_key=${EDAMAM_APP_KEY}&ingr=${encodeURIComponent(query)}`;
+                const response = await fetch(url);
+                if (response.status === 429) throw new Error("Ücretsiz API limitine ulaşıldı. Lütfen 1 dakika bekleyin.");
+                if (!response.ok) throw new Error(`Cevap kodu: ${response.status}`);
+                
+                const data = await response.json();
+                apiCache[query] = data; 
+                renderApiResults(data, query);
+            } catch (error) { resultsList.innerHTML = `<li style="color:var(--danger)">⚠️ ${error.message}</li>`; }
+        }
+
+        function renderApiResults(data, query) {
+            const resultsList = document.getElementById('apiResultsList');
+            resultsList.innerHTML = '';
+            if (data.hints && data.hints.length > 0) {
+                data.hints.slice(0, 5).forEach(item => {
+                    const food = item.food; const nutrients = food.nutrients;
+                    const kcal = Math.round(nutrients.ENERC_KCAL || 0); const protein = Math.round(nutrients.PROCNT || 0);
+                    const carbs = Math.round(nutrients.CHOCDF || 0); const fat = Math.round(nutrients.FAT || 0);
+                    
+                    const li = document.createElement('li');
+                    li.innerHTML = `<div><strong style="color:var(--text-dark);">${food.label}</strong><div class="macro-tags">P: ${protein}g | K: ${carbs}g | Y: ${fat}g</div></div><span style="font-weight:bold; color:var(--warning)">+${kcal} kcal</span>`;
+                    li.onclick = () => selectFoodItem(food.label, kcal, protein, carbs, fat);
+                    resultsList.appendChild(li);
+                });
+            } else { resultsList.innerHTML = `<li style="color:var(--danger)">Besin bulunamadı (İngilizce deneyin).</li>`; }
+        }
+
+        function selectFoodItem(label, kcal, protein, carbs, fat) {
+            state.nutrition.history.unshift({ id: Date.now(), label, kcal, protein, carbs, fat });
+            document.getElementById('foodInput').value = ''; 
+            document.getElementById('apiResultsList').style.display = 'none'; 
+            refreshAllUI();
+        }
+
+        function deleteFoodItem(id) {
+            const index = state.nutrition.history.findIndex(f => f.id === id);
+            if(index !== -1) {
+                state.nutrition.history.splice(index, 1);
+                refreshAllUI();
+            }
+        }
+
+        function resetProfile() {
+            globalDb.profile = { weight: null, height: null, age: null, gender: '', bmr: 0 };
+            document.getElementById('gender').value = ''; document.getElementById('age').value = '';
+            document.getElementById('height').value = ''; document.getElementById('body-weight').value = ''; refreshAllUI();
+        }
+
+        function updateProfile() { 
+            const g = document.getElementById('gender').value; const a = parseInt(document.getElementById('age').value);
+            const h = parseInt(document.getElementById('height').value); const w = parseInt(document.getElementById('body-weight').value);
+            if (g && a > 0 && h > 0 && w > 0) {
+                globalDb.profile.gender = g; globalDb.profile.age = a; globalDb.profile.height = h; globalDb.profile.weight = w; 
+                let bmr = (10 * w) + (6.25 * h) - (5 * a); globalDb.profile.bmr = Math.round(g === 'male' ? bmr + 5 : bmr - 161);
+                refreshAllUI();
+            } else { alert("Lütfen yaş, cinsiyet, boy ve kilo bilgilerini geçerli (pozitif) ve eksiksiz girin."); }
+        }
+
+        function calculateBMI() { 
+            const h = globalDb.profile.height; const w = globalDb.profile.weight;
+            if (!h || !w || h === 0 || w === 0) { document.getElementById('bmi-val').innerText = "0.0"; document.getElementById('bmi-status').innerText = "Bilgi Bekleniyor"; return; }
+            const hm = h / 100; const bmi = (w / (hm * hm)).toFixed(1); document.getElementById('bmi-val').innerText = bmi; 
+            let s = ""; if(bmi<18.5) s="Zayıf"; else if(bmi<24.9) s="Normal"; else if(bmi<29.9) s="Fazla Kilolu"; else s="Obezite"; 
+            document.getElementById('bmi-status').innerText = s; 
+        }
+
+        function formatDoc(cmd, val=null) { document.execCommand(cmd, false, val); document.getElementById('noteEditor').focus(); }
+        function saveNote() { state.note = document.getElementById('noteEditor').innerHTML; saveData(); }
+
+        let editingLibId = null;
+        function addLibraryItem() {
+            const title = document.getElementById('libTitle').value.trim(); const category = document.getElementById('libCategory').value.trim(); 
+            const link = document.getElementById('libLink').value.trim(); const notes = document.getElementById('libNotes').value.trim();
+            if(!title || !notes || !category) { alert("Lütfen Kaynak Adı, Kategori ve Çıkarım alanlarını doldurun."); return; }
+
+            if(editingLibId) {
+                const item = globalDb.library.find(i => i.id === editingLibId);
+                if(item) { item.title = title; item.category = category; item.link = link; item.notes = notes; }
+                editingLibId = null; const btn = document.getElementById('libAddBtn');
+                btn.innerText = "Kütüphaneye Ekle"; btn.classList.add("btn-success"); btn.style.background = "";
+            } else { globalDb.library.unshift({ id: Date.now(), title, category, link, notes, date: new Date().toLocaleDateString('tr-TR') }); }
+
+            document.getElementById('libTitle').value = ''; document.getElementById('libLink').value = ''; 
+            document.getElementById('libNotes').value = ''; document.getElementById('libCategory').value = '';
+            saveData(); renderLibrary();
+        }
+
+        function editLibraryItem(id) {
+            const item = globalDb.library.find(i => i.id === id);
+            if(item) {
+                document.getElementById('libTitle').value = item.title; document.getElementById('libCategory').value = item.category;
+                document.getElementById('libLink').value = item.link || ""; document.getElementById('libNotes').value = item.notes;
+                editingLibId = id; const btn = document.getElementById('libAddBtn');
+                btn.innerText = "Değişiklikleri Kaydet"; btn.classList.remove("btn-success"); btn.style.background = "var(--warning)";
+                window.scrollTo({ top: document.getElementById('library').offsetTop - 20, behavior: 'smooth' });
+            }
+        }
+        function deleteLibraryItem(id) { if(confirm("Bu kaynağı silmek istediğine emin misin?")) { globalDb.library = globalDb.library.filter(item => item.id !== id); saveData(); renderLibrary(); } }
+
+        function renderLibrary() {
+            const container = document.getElementById('libraryContainer'); const catList = document.getElementById('cat-list'); container.innerHTML = '';
+            const allCategories = [...new Set(globalDb.library.map(i => i.category))]; catList.innerHTML = allCategories.map(c => `<option value="${c}">`).join('');
+            const grouped = {}; globalDb.library.forEach(item => { if(!grouped[item.category]) grouped[item.category] = []; grouped[item.category].push(item); });
+
+            for(let cat in grouped) {
+                let html = `<div class="lib-category-title">📂 ${cat}</div><div class="library-grid">`;
+                grouped[cat].forEach(item => {
+                    let linkBtn = item.link ? `<a href="${item.link}" target="_blank" class="lib-link">🔗 Kaynağa Git</a>` : '';
+                    html += `<div class="library-card"><div style="position:absolute; top:12px; right:12px; display:flex; gap:3px;"><button class="icon-btn" onclick="editLibraryItem(${item.id})" title="Düzenle">✏️</button><button class="icon-btn" onclick="deleteLibraryItem(${item.id})" title="Sil">❌</button></div><div class="lib-type">${item.date}</div><div class="lib-title">${item.title}</div><div style="font-size:13px; margin-top:5px; color:var(--text-light);">"${item.notes}"</div>${linkBtn}</div>`;
+                });
+                html += `</div>`; container.innerHTML += html;
+            }
+            if(globalDb.library.length === 0) { container.innerHTML = `<p style="color:var(--text-light);">Kütüphanen henüz boş. Yeni kaynaklar öğrenip buraya ekleyebilirsin.</p>`; }
+        }
+
+        let swInt=null, swTime=0;
+        function startStopwatch() { if(swInt)return; document.getElementById('swStartBtn').innerText="Devam Et"; swInt=setInterval(()=>{ swTime++; let h=Math.floor(swTime/3600).toString().padStart(2,'0'); let m=Math.floor((swTime%3600)/60).toString().padStart(2,'0'); let s=(swTime%60).toString().padStart(2,'0'); document.getElementById('stopwatchDisplay').innerText=`${h}:${m}:${s}`;},1000);}
+        function stopStopwatch() { clearInterval(swInt); swInt=null; }
+        function resetStopwatch() { stopStopwatch(); swTime=0; document.getElementById('stopwatchDisplay').innerText="00:00:00"; document.getElementById('swStartBtn').innerText="Başlat"; }
+        
+        let cdInt=null, cdTime=25*60;
+        function startCountdown() {
+            if(cdInt)return; if(document.getElementById('cdStartBtn').innerText==="Başlat") { let v=parseInt(document.getElementById('cdInput').value); if(v>0) cdTime=v*60; }
+            document.getElementById('cdStartBtn').innerText="Devam Et";
+            cdInt=setInterval(()=>{ if(cdTime<=0){ stopCountdown(); alert("Süre Doldu!"); return;} cdTime--; let m=Math.floor(cdTime/60).toString().padStart(2,'0'); let s=(cdTime%60).toString().padStart(2,'0'); document.getElementById('countdownDisplay').innerText=`${m}:${s}`;},1000);
+        }
+        function stopCountdown() { clearInterval(cdInt); cdInt=null; }
+        function resetCountdown() { stopCountdown(); document.getElementById('cdInput').value="25"; document.getElementById('countdownDisplay').innerText="25:00"; document.getElementById('cdStartBtn').innerText="Başlat"; }
+
+        // --- 6. MERKEZİ EKRAN GÜNCELLEME ---
+        function refreshAllUI() {
+            document.getElementById('gender').value = globalDb.profile.gender || ""; document.getElementById('age').value = globalDb.profile.age || "";
+            document.getElementById('height').value = globalDb.profile.height || ""; document.getElementById('body-weight').value = globalDb.profile.weight || ""; 
+            calculateBMI();
+            
+            if (state.nutrition && state.nutrition.history) {
+                state.nutrition.kcal = state.nutrition.history.reduce((sum, item) => sum + item.kcal, 0);
+                state.nutrition.protein = state.nutrition.history.reduce((sum, item) => sum + item.protein, 0);
+                state.nutrition.carbs = state.nutrition.history.reduce((sum, item) => sum + item.carbs, 0);
+                state.nutrition.fat = state.nutrition.history.reduce((sum, item) => sum + item.fat, 0);
+            }
+
+            if (state.workout && state.workout.history) {
+                state.workout.totalBurned = state.workout.history.reduce((sum, item) => sum + (item.burned || 0), 0);
+            }
+
+            const hasProfile = globalDb.profile.weight && globalDb.profile.height && globalDb.profile.age && globalDb.profile.gender;
+            const newTotalExp = hasProfile ? globalDb.profile.bmr + state.workout.totalBurned : state.workout.totalBurned;
+
+            document.getElementById('dash-intake').innerText = state.nutrition.kcal;
+            document.getElementById('dash-workout-burn').innerText = state.workout.totalBurned; 
+            document.getElementById('dash-expenditure').innerText = hasProfile ? newTotalExp : 0;
+
+            const statusEl = document.getElementById('dash-energy-status');
+            if (!hasProfile) { statusEl.innerHTML = `<span style="color:var(--text-light); font-weight:600;">Enerji hesabı için Profil'den bilgilerinizi girin.</span>`; } 
+            else {
+                const diff = state.nutrition.kcal - newTotalExp; 
+                if(state.nutrition.kcal === 0) statusEl.innerText = "Beslenme girilmedi."; 
+                else if(diff < 0) statusEl.innerHTML = `<span style="color:var(--secondary); font-weight:bold;">Açık: ${Math.abs(diff)} kcal</span>`; 
+                else statusEl.innerHTML = `<span style="color:var(--warning); font-weight:bold;">Fazla: ${diff} kcal</span>`;
+            }
+
+            document.getElementById('dash-recent-workouts').innerHTML = state.workout.history.length > 0 
+                ? state.workout.history.map(item => {
+                    if (typeof item === 'string') return `<li style="padding: 6px; background: var(--bg); border-radius: 8px; margin-bottom: 5px;">⚡ ${item}</li>`;
+                    return `<li style="display:flex; justify-content:space-between; align-items:center; padding: 6px 10px; background: var(--bg); border-radius: 8px; margin-bottom: 6px;"><span>⚡ ${item.text}</span><button class="icon-btn" onclick="deleteWorkout(${item.id})" style="color:var(--danger);" title="Sil">❌</button></li>`;
+                }).join('') 
+                : "Kayıt yok.";
+            
+            const nGrid = document.getElementById('nutrition-history-grid');
+            if(nGrid) {
+                nGrid.innerHTML = state.nutrition.history && state.nutrition.history.length > 0 
+                    ? state.nutrition.history.map(item => `
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding: 12px; background: var(--bg); border-radius: 12px 4px 12px 4px; border: 1px solid var(--border-color); box-shadow: 0 2px 5px rgba(0,0,0,0.02);">
+                            <div>
+                                <strong style="font-size:14px; color:var(--primary);">${item.label}</strong>
+                                <div style="font-size:12px; color:var(--text-light); margin-top:5px; line-height: 1.4;">
+                                    <span style="color:var(--warning); font-weight:600;">+${item.kcal} kcal</span><br>
+                                    P:${item.protein}g | K:${item.carbs}g | Y:${item.fat}g
+                                </div>
+                            </div>
+                            <button class="icon-btn" onclick="deleteFoodItem(${item.id})" style="color:var(--danger);" title="Sil">❌</button>
+                        </div>
+                    `).join('') 
+                    : "<div style='grid-column: 1 / -1; padding: 15px; color: var(--text-light); text-align: center; background: var(--input-bg); border-radius: 8px;'>Henüz besin girilmedi.</div>";
+            }
+            
+            const pList = document.getElementById('pendingTasksList'); const cList = document.getElementById('completedTasksList');
+            pList.innerHTML = ''; cList.innerHTML = ''; let p=0, c=0;
+            state.tasks.forEach(t => {
+                const li = document.createElement('li'); if(t.completed) li.classList.add('completed-task');
+                li.innerHTML = `<div style="display:flex; align-items:center; gap:15px; width:100%; overflow:hidden;"><input type="checkbox" onchange="toggleTask(${t.id})" ${t.completed ? 'checked' : ''}><span style="color:var(--text-dark); word-break: break-word;">${t.text}</span></div><div style="display:flex; gap:5px;"><button class="icon-btn" onclick="editTask(${t.id})" title="Düzenle">✏️</button><button class="icon-btn" onclick="deleteTask(${t.id})" title="Sil">❌</button></div>`;
+                if(t.completed) { cList.appendChild(li); c++; } else { pList.appendChild(li); p++; }
+            });
+            document.getElementById('pendingCount').innerText = p; document.getElementById('completedCount').innerText = c;
+            
+            switchWorkoutType(state.workout.currentMode);
+            refreshHearts(); renderCalendarGrid(); renderLibrary();
+            document.getElementById('noteEditor').innerHTML = state.note || "";
+
+            dashTaskChart.data.datasets[0].data = state.tasks.length === 0 ? [0,0,1] : [c, p, 0]; dashTaskChart.update();
+            const wL=[], wD=[]; for(const[k,v] of Object.entries(state.workout.chartData)) { if(v>0){wL.push(k); wD.push(v);} }
+            workoutChart.data.labels = wL; workoutChart.data.datasets[0].data = wD; workoutChart.update();
+            
+            const pWeight = globalDb.profile.weight || 0; 
+            profileChart.data.datasets[0].data = [state.nutrition.kcal, state.nutrition.protein, state.nutrition.carbs, state.nutrition.fat];
+            profileChart.data.datasets[1].data = hasProfile ? [newTotalExp, pWeight * 2, pWeight * 3, pWeight * 1] : [0, 0, 0, 0];
+            profileChart.update();
+
+            saveData();
+        }
+
+        loadDayData(currentDate); refreshAllUI();
+    </script>
+</body>
+</html>
